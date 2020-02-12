@@ -1,8 +1,4 @@
 # Binaries for programs and plugins
-*.mp3
-*.wav
-*.flac
-*.mpeg
 *.exe
 *.exe~
 *.dll
@@ -17,3 +13,4 @@
 
 # Dependency directories (remove the comment below to include it)
 # vendor/
+tmp/

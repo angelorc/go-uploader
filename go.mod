@@ -1,4 +1,4 @@
-module github.com/bitsongofficial/go-uploader
+module github.com/angelorc/go-uploader
 
 go 1.13
 

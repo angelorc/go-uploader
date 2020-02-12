@@ -287,6 +287,42 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Split file into segments
+	cmd = exec.Command(
+		"ffmpeg",
+		"-i",
+		"./tmp/"+fileName,
+		"-f",
+		"segment",
+		"-segment_time",
+		"5", // 5sec
+		"-c",
+		"copy",
+		"./tmp/" + fileName + "%03d.mp3",
+	)
+
+	cmd.Stderr = &ffmpegStdErr
+
+	err = cmd.Run()
+	if err != nil {
+		writeJSONResponse(
+			w,
+			http.StatusInternalServerError,
+			newErrorJson(
+				fmt.Sprintf("Cannot split audio into segments file %s", header.Filename),
+			),
+		)
+
+		log.Print("FFMpeg error ", err)
+		log.Print(string(ffmpegStdErr.Bytes()))
+
+		return
+	}
+
+	// add and pin files to ipfs
+	// remove converted tmp files
+	// send publish tx to bitsong
+
 
 	writeJSONResponse(
 		w,
