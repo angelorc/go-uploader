@@ -1,19 +1,15 @@
 package main
 
 import (
-	"bytes"
-	"encoding/json"
 	"fmt"
+	shell "github.com/ipfs/go-ipfs-api"
+	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
-	log "github.com/sirupsen/logrus"
+	"mime/multipart"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
-	"strings"
-
-	shell "github.com/ipfs/go-ipfs-api"
 )
 
 const (
@@ -28,11 +24,6 @@ const (
 
 	TMPPATH = "./tmp/"
 )
-
-func isAudioContentType(contentType string) bool {
-	// application/octet-stream - binary file without format, some encoders can record audio without mime type
-	return contentType == "audio/aac" || contentType == "audio/wav" || contentType == "audio/mp3"  || contentType == "application/octet-stream"
-}
 
 // infoHandler returns an HTML upload form
 func uploadHandler(w http.ResponseWriter, r *http.Request) {
@@ -54,11 +45,76 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+func getIpfsShell() (*shell.Shell, bool) {
+	sh := shell.NewShell("https://ipfs.infura.io:5001")
+	if !sh.IsUp() {
+		return nil, false
+	}
+
+	return sh, true
+}
+
+func saveOriginalAudio(file multipart.File, fileExt string) (*os.File, bool) {
+	tmpDir := TMPPATH + "1/" // TODO: change with uniq id
+
+	// create tmp dir
+	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
+		err = os.MkdirAll(tmpDir, 0755)
+		if err != nil {
+			log.Print(err)
+
+			return nil, false
+		}
+	}
+
+	tmpFile := tmpDir + "original" + fileExt
+
+	// save file
+	buff, err := os.Create(tmpFile)
+	if err != nil {
+		log.Print(err)
+
+		return nil, false
+	}
+	//defer os.Remove(tmpFile)
+
+	// write the content from POST to the file
+	_, err = io.Copy(buff, file)
+	if err != nil {
+		log.Print(err)
+
+		return nil, false
+	}
+
+	return buff, true
+}
+
+func checkAudioSize(buff *os.File) error {
+	rawFile, err := ioutil.ReadAll(buff)
+	if err != nil {
+		log.Print(err)
+
+		return fmt.Errorf("cannot read file")
+	}
+
+
+	// check audio size
+	if len(rawFile) > MAX_AUDIO_FILE_SIZE {
+		return fmt.Errorf(fmt.Sprintf(
+			"File is too big, actual: %d, max: %d",
+			len(rawFile),
+			MAX_AUDIO_FILE_SIZE,
+		))
+	}
+
+	return nil
+}
+
 // receiveHandler accepts the file and saves it to the current working directory
 func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
-	ipfsShell := shell.NewShell("localhost:5001")
-	if !ipfsShell.IsUp() {
+	_, ok := getIpfsShell()
+	if !ok {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -69,7 +125,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// the FormFile function takes in the POST input id file
-	file, header, err := r.FormFile("file")
+	file, audio, err := r.FormFile("file")
 	if err != nil {
 		writeJSONResponse(
 			w,
@@ -82,7 +138,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	defer file.Close()
 
 	// check if the content type is allowed
-	contentType := header.Header.Get("Content-Type")
+	contentType := audio.Header.Get("Content-Type")
 	if !isAudioContentType(contentType) {
 		writeJSONResponse(
 			w,
@@ -95,74 +151,35 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	tmpFile := TMPPATH + header.Filename
-
-	// save file
-	buff, err := os.Create(tmpFile)
-	if err != nil {
+	// save original file
+	fileExt := filepath.Ext(audio.Filename)
+	buffer, ok := saveOriginalAudio(file, fileExt)
+	if !ok {
 		writeJSONResponse(
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot create audio file %s", header.Filename),
+				fmt.Sprintf("Cannot save audio file %s", audio.Filename),
 			),
 		)
-
-		log.Print(err)
-
-		return
-	}
-	defer buff.Close()
-	//defer os.Remove(tmpFile)
-
-	// write the content from POST to the file
-	_, err = io.Copy(buff, file)
-	if err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot save audio file %s", header.Filename),
-			),
-		)
-
-		log.Print(err)
-
-		return
 	}
 
-	// get rawFile
-	rawFile, err := ioutil.ReadAll(buff)
+	err = checkAudioSize(buffer)
 	if err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
 			newErrorJson(
-				fmt.Sprintf("Cannot read file %s", header.Filename),
-			),
-		)
-
-		log.Print(err)
-
-		return
-	}
-
-	// check audio size
-	if len(rawFile) > MAX_AUDIO_FILE_SIZE {
-		writeJSONResponse(
-			w,
-			http.StatusBadRequest,
-			newErrorJson(
-				fmt.Sprintf(
-					"File is too big, actual: %d, max: %d",
-					len(rawFile),
-					MAX_AUDIO_FILE_SIZE,
-				),
+				err.Error(),
 			),
 		)
 
 		return
 	}
+
+	defer buffer.Close()
+
+	/*
 
 	cmd := exec.Command(
 		"ffprobe",
@@ -190,7 +207,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot process audio file %s", header.Filename),
+				fmt.Sprintf("Cannot process audio file %s", audio.Filename),
 			),
 		)
 
@@ -209,7 +226,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Error when parse %s", header.Filename),
+				fmt.Sprintf("Error when parse %s", audio.Filename),
 			),
 		)
 
@@ -229,8 +246,10 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fileExt := filepath.Ext(header.Filename)
-	fileName := fmt.Sprintf("converted_%s.mp3", strings.TrimRight(header.Filename, fileExt))
+	uploadSession := "1"
+
+	fileExt := filepath.Ext(audio.Filename)
+	fileName := fmt.Sprintf("%s_%s.mp3", uploadSession, strings.TrimRight(audio.Filename, fileExt))
 
 	cmd = exec.Command(
 		"ffmpeg",
@@ -255,7 +274,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot process audio file %s", header.Filename),
+				fmt.Sprintf("Cannot process audio file %s", audio.Filename),
 			),
 		)
 
@@ -309,7 +328,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		"5", // 5sec
 		"-c",
 		"copy",
-		"./tmp/" + fileName + "%03d.mp3",
+		"./tmp/" + uploadSession + "%03d.mp3",
 	)
 
 	cmd.Stderr = &ffmpegStdErr
@@ -320,7 +339,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot split audio into segments file %s", header.Filename),
+				fmt.Sprintf("Cannot split audio into segments file %s", audio.Filename),
 			),
 		)
 
@@ -330,14 +349,20 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+
+
+	log.Print("ok")
+	*/
+
+
 	// add and pin files to ipfs
-	cid, err := ipfsShell.Add(buff)
+	/*cid, err := ipfsShell.Add(buff)
 	if err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot upload segment to ipfs %s", header.Filename),
+				fmt.Sprintf("Cannot upload segment to ipfs %s", audio.Filename),
 			),
 		)
 
@@ -353,7 +378,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		w,
 		http.StatusCreated,
 		fmt.Sprintf("cid %v", cid),
-	)
+	)*/
 }
 
 func main() {
