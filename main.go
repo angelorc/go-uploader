@@ -12,6 +12,8 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
+
+	shell "github.com/ipfs/go-ipfs-api"
 )
 
 const (
@@ -55,6 +57,17 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 // receiveHandler accepts the file and saves it to the current working directory
 func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
+	ipfsShell := shell.NewShell("localhost:5001")
+	if !ipfsShell.IsUp() {
+		writeJSONResponse(
+			w,
+			http.StatusBadRequest,
+			newErrorJson("IPFS node is down"),
+		)
+
+		return
+	}
+
 	// the FormFile function takes in the POST input id file
 	file, header, err := r.FormFile("file")
 	if err != nil {
@@ -63,8 +76,6 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 			http.StatusBadRequest,
 			newErrorJson("We cannot find upload file inside file field"),
 		)
-
-		log.Print(err)
 
 		return
 	}
@@ -102,7 +113,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer buff.Close()
-	defer os.Remove(tmpFile)
+	//defer os.Remove(tmpFile)
 
 	// write the content from POST to the file
 	_, err = io.Copy(buff, file)
@@ -320,6 +331,20 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// add and pin files to ipfs
+	cid, err := ipfsShell.Add(buff)
+	if err != nil {
+		writeJSONResponse(
+			w,
+			http.StatusInternalServerError,
+			newErrorJson(
+				fmt.Sprintf("Cannot upload segment to ipfs %s", header.Filename),
+			),
+		)
+
+		return
+	}
+
+
 	// remove converted tmp files
 	// send publish tx to bitsong
 
@@ -327,7 +352,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	writeJSONResponse(
 		w,
 		http.StatusCreated,
-		fmt.Sprintf("Duration %v", ffprobeResult.Format.Duration),
+		fmt.Sprintf("cid %v", cid),
 	)
 }
 
@@ -341,5 +366,5 @@ func main() {
 	http.HandleFunc("/upload", uploadHandler)   // Display a form for user to upload file
 	http.HandleFunc("/receive", receiveHandler) // Handle the incoming file
 	http.Handle("/", http.FileServer(http.Dir(dir)))
-	log.Fatal(http.ListenAndServe(":8080", nil))
+	log.Fatal(http.ListenAndServe(":8081", nil))
 }
