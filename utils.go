@@ -27,8 +27,3 @@ func newErrorJson(message string) ErrorJson {
 		},
 	}
 }
-
-func isAudioContentType(contentType string) bool {
-	// application/octet-stream - binary file without format, some encoders can record audio without mime type
-	return contentType == "audio/aac" || contentType == "audio/wav" || contentType == "audio/mp3"  || contentType == "application/octet-stream"
-}

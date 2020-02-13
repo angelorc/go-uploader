@@ -1,9 +1,18 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="ChangeListManager">
-    <list default="true" id="f75f2691-d630-4db9-9d6d-cea1d44ca2e0" name="Default Changelist" comment="">
+    <list default="true" id="57ac0f1a-1bdb-41be-a712-e959729ec8b3" name="Default Changelist" comment="">
+      <change afterPath="$PROJECT_DIR$/main_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/audio.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/audio_test.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/ipfs.go" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/services/uploader.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/.idea/go-uploader.iml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/go-uploader.iml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.mod" beforeDir="false" afterPath="$PROJECT_DIR$/go.mod" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/go.sum" beforeDir="false" afterPath="$PROJECT_DIR$/go.sum" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/main.go" beforeDir="false" afterPath="$PROJECT_DIR$/main.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/model.go" beforeDir="false" />
       <change beforePath="$PROJECT_DIR$/utils.go" beforeDir="false" afterPath="$PROJECT_DIR$/utils.go" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -25,8 +34,7 @@
   <component name="GoLibraries">
     <option name="indexEntireGoPath" value="false" />
   </component>
-  <component name="ProjectId" id="1Xi9D4wQ7Y7jyk52zrw1HPIUqog" />
-  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
+  <component name="ProjectId" id="1XkgktMCSdUw8XKCKEsEm7kvUVz" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showExcludedFiles" value="true" />
@@ -35,13 +43,56 @@
   <component name="PropertiesComponent">
     <property name="DefaultGoTemplateProperty" value="Go File" />
     <property name="RunOnceActivity.ShowReadmeOnStart" value="true" />
-    <property name="SHARE_PROJECT_CONFIGURATION_FILES" value="true" />
     <property name="WebServerToolWindowFactoryState" value="false" />
     <property name="go.import.settings.migrated" value="true" />
     <property name="go.sdk.automatically.set" value="true" />
     <property name="go.tried.to.enable.integration.vgo.integrator" value="true" />
-    <property name="last_opened_file_path" value="$PROJECT_DIR$" />
+    <property name="last_opened_file_path" value="$USER_HOME$" />
+    <property name="nodejs_interpreter_path.stuck_in_default_project" value="undefined stuck path" />
+    <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="settings.editor.selected.configurable" value="watcher.settings" />
+  </component>
+  <component name="RunManager" selected="Go Test.TestAudio_GetDuration in github.com/angelorc/go-uploader/services">
+    <configuration name="TestAudio_GetDuration in github.com/angelorc/go-uploader/services" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-uploader" />
+      <working_directory value="$PROJECT_DIR$/services" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/angelorc/go-uploader/services" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestAudio_GetDuration$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="TestIpfs_GetShell in github.com/angelorc/go-uploader/ipfs" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-uploader" />
+      <working_directory value="$PROJECT_DIR$/ipfs" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/angelorc/go-uploader/ipfs" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^TestIpfs_GetShell$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="Test_receiveHandler in github.com/angelorc/go-uploader" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="go-uploader" />
+      <working_directory value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <kind value="PACKAGE" />
+      <package value="github.com/angelorc/go-uploader" />
+      <directory value="$PROJECT_DIR$/" />
+      <filePath value="$PROJECT_DIR$/" />
+      <pattern value="^Test_receiveHandler$" />
+      <method v="2" />
+    </configuration>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go Test.TestAudio_GetDuration in github.com/angelorc/go-uploader/services" />
+        <item itemvalue="Go Test.Test_receiveHandler in github.com/angelorc/go-uploader" />
+        <item itemvalue="Go Test.TestIpfs_GetShell in github.com/angelorc/go-uploader/ipfs" />
+      </list>
+    </recent_temporary>
   </component>
   <component name="TypeScriptGeneratedFilesManager">
     <option name="version" value="1" />
@@ -51,9 +102,29 @@
     <proxy>direct</proxy>
   </component>
   <component name="WindowStateProjectService">
-    <state x="482" y="187" key="SettingsEditor" timestamp="1581522938853">
+    <state x="622" y="329" width="731" height="481" key="EditFileWatcherDialog" timestamp="1581595721326">
       <screen x="67" y="27" width="1853" height="1053" />
     </state>
-    <state x="482" y="187" key="SettingsEditor/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581522938853" />
+    <state x="622" y="329" width="731" height="481" key="EditFileWatcherDialog/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581595721326" />
+    <state width="1807" height="175" key="GridCell.Tab.0.bottom" timestamp="1581608438324">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1807" height="175" key="GridCell.Tab.0.bottom/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581608438324" />
+    <state width="1807" height="175" key="GridCell.Tab.0.center" timestamp="1581608438324">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1807" height="175" key="GridCell.Tab.0.center/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581608438324" />
+    <state width="1807" height="175" key="GridCell.Tab.0.left" timestamp="1581608438324">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1807" height="175" key="GridCell.Tab.0.left/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581608438324" />
+    <state width="1807" height="175" key="GridCell.Tab.0.right" timestamp="1581608438324">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state width="1807" height="175" key="GridCell.Tab.0.right/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581608438324" />
+    <state x="482" y="187" key="SettingsEditor" timestamp="1581595722959">
+      <screen x="67" y="27" width="1853" height="1053" />
+    </state>
+    <state x="482" y="187" key="SettingsEditor/67.27.1853.1053/1920.0.1920.1080@67.27.1853.1053" timestamp="1581595722959" />
   </component>
 </project>

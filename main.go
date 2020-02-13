@@ -1,15 +1,19 @@
 package main
 
 import (
+	//"bytes"
+	//"encoding/json"
 	"fmt"
-	shell "github.com/ipfs/go-ipfs-api"
+	"github.com/angelorc/go-uploader/services"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"os"
-	"path/filepath"
+	//"os/exec"
+	//"path/filepath"
+	//"strings"
 )
 
 const (
@@ -43,15 +47,6 @@ func uploadHandler(w http.ResponseWriter, r *http.Request) {
 </body>
 </html>`)
 	}
-}
-
-func getIpfsShell() (*shell.Shell, bool) {
-	sh := shell.NewShell("https://ipfs.infura.io:5001")
-	if !sh.IsUp() {
-		return nil, false
-	}
-
-	return sh, true
 }
 
 func saveOriginalAudio(file multipart.File, fileExt string) (*os.File, bool) {
@@ -97,7 +92,6 @@ func checkAudioSize(buff *os.File) error {
 		return fmt.Errorf("cannot read file")
 	}
 
-
 	// check audio size
 	if len(rawFile) > MAX_AUDIO_FILE_SIZE {
 		return fmt.Errorf(fmt.Sprintf(
@@ -113,8 +107,8 @@ func checkAudioSize(buff *os.File) error {
 // receiveHandler accepts the file and saves it to the current working directory
 func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
-	_, ok := getIpfsShell()
-	if !ok {
+	ipfs := services.NewIpfs()
+	if !ipfs.IsUp() {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -125,7 +119,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// the FormFile function takes in the POST input id file
-	file, audio, err := r.FormFile("file")
+	file, header, err := r.FormFile("file")
 	if err != nil {
 		writeJSONResponse(
 			w,
@@ -137,106 +131,48 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer file.Close()
 
-	// check if the content type is allowed
-	contentType := audio.Header.Get("Content-Type")
-	if !isAudioContentType(contentType) {
+	upload := services.NewUploader(file, header)
+
+	// check if the file is audio
+	if !upload.IsAudio() {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
 			newErrorJson(
-				fmt.Sprintf("Wrong content type: %s", contentType),
+				fmt.Sprintf("Wrong content type: %s", upload.GetContentType()),
 			),
 		)
-
 		return
 	}
 
 	// save original file
-	fileExt := filepath.Ext(audio.Filename)
-	buffer, ok := saveOriginalAudio(file, fileExt)
-	if !ok {
-		writeJSONResponse(
-			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot save audio file %s", audio.Filename),
-			),
-		)
-	}
-
-	err = checkAudioSize(buffer)
-	if err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusBadRequest,
-			newErrorJson(
-				err.Error(),
-			),
-		)
-
-		return
-	}
-
-	defer buffer.Close()
-
-	/*
-
-	cmd := exec.Command(
-		"ffprobe",
-		"-v",
-		"error",
-		"-i",
-		tmpFile,
-		"-print_format",
-		"json",
-		"-show_format",
-	)
-
-	var (
-		// There are some uneeded information inside StdOut, skip it
-		ffprobeStdOut bytes.Buffer
-		ffprobeStdErr bytes.Buffer
-	)
-
-	cmd.Stdout = &ffprobeStdOut
-	cmd.Stderr = &ffprobeStdErr
-
-	err = cmd.Run()
+	_, err = upload.SaveOriginal()
 	if err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot process audio file %s", audio.Filename),
+				fmt.Sprintf("Cannot save audio file %s", upload.Header.Filename),
 			),
 		)
-
-		log.Print("FFProbe error ", err)
-		log.Print(string(ffprobeStdErr.Bytes()))
-
-		return
 	}
 
-	ffprobeOutput := ffprobeStdOut.Bytes()
-	ffprobeResult := AudioFFProbe{}
-
-	err = json.Unmarshal(ffprobeOutput, &ffprobeResult)
+	// check file size
+	// check duration
+	audio := services.NewAudio(upload.GetTmpOriginalFileName())
+	duration, err := audio.GetDuration()
 	if err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Error when parse %s", audio.Filename),
+				fmt.Sprintf("Cannot get audio duration"),
 			),
 		)
-
-		log.Print(err)
-		log.Print(string(ffprobeOutput))
-
 		return
 	}
 
-	if ffprobeResult.Format.Duration > MAX_AUDIO_LENGTH {
+	if duration > MAX_AUDIO_LENGTH {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -246,114 +182,62 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	uploadSession := "1"
-
-	fileExt := filepath.Ext(audio.Filename)
-	fileName := fmt.Sprintf("%s_%s.mp3", uploadSession, strings.TrimRight(audio.Filename, fileExt))
-
-	cmd = exec.Command(
-		"ffmpeg",
-		"-i",
-		tmpFile,
-		"-acodec",
-		"libmp3lame",
-		"-ab",
-		"128k",
-		"-metadata",
-		"artist=ownerAddress",
-		"-y",
-		"./tmp/"+fileName,
-	)
-
-	var ffmpegStdErr bytes.Buffer
-	cmd.Stderr = &ffmpegStdErr
-
-	err = cmd.Run()
-	if err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot process audio file %s", audio.Filename),
-			),
-		)
-
-		log.Print("FFMpeg error ", err)
-		log.Print(string(ffmpegStdErr.Bytes()))
-
-		return
-	}
-
-	formattedFile, err := ioutil.ReadFile("./tmp/" + fileName)
-	if err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot read file %s after proccesing", "./tmp/"+fileName),
-			),
-		)
-
-		log.Print(err)
-
-		return
-	}
-
-	if len(formattedFile) > MAX_ORIGINAL_FILE_SIZE {
-		defer os.Remove("./tmp/" + fileName)
-
+	// Convert to mp3
+	if err := audio.ConvertToMp3(); err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
-			newErrorJson(
-				fmt.Sprintf(
-					"File is too big, actual: %d, max: %d",
-					len(formattedFile),
-					MAX_ORIGINAL_FILE_SIZE,
-				),
-			),
+			newErrorJson(err.Error()),
 		)
 
 		return
 	}
 
-	// Split file into segments
-	cmd = exec.Command(
-		"ffmpeg",
-		"-i",
-		"./tmp/"+fileName,
-		"-f",
-		"segment",
-		"-segment_time",
-		"5", // 5sec
-		"-c",
-		"copy",
-		"./tmp/" + uploadSession + "%03d.mp3",
-	)
+	// check size compared to original
 
-	cmd.Stderr = &ffmpegStdErr
-
-	err = cmd.Run()
-	if err != nil {
+	// spilt mp3 to segments
+	if err := audio.SplitToSegments(); err != nil {
 		writeJSONResponse(
 			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot split audio into segments file %s", audio.Filename),
-			),
+			http.StatusBadRequest,
+			newErrorJson(err.Error()),
 		)
-
-		log.Print("FFMpeg error ", err)
-		log.Print(string(ffmpegStdErr.Bytes()))
 
 		return
 	}
 
+	// remove original and converted
+	if err := audio.RemoveOriginal(); err != nil {
+		writeJSONResponse(
+			w,
+			http.StatusBadRequest,
+			newErrorJson(err.Error()),
+		)
 
+		return
+	}
 
-	log.Print("ok")
+	/*
+
+		if len(formattedFile) > MAX_ORIGINAL_FILE_SIZE {
+			defer os.Remove("./tmp/" + fileName)
+
+			writeJSONResponse(
+				w,
+				http.StatusBadRequest,
+				newErrorJson(
+					fmt.Sprintf(
+						"File is too big, actual: %d, max: %d",
+						len(formattedFile),
+						MAX_ORIGINAL_FILE_SIZE,
+					),
+				),
+			)
+
+			return
+		}
+
 	*/
-
 
 	// add and pin files to ipfs
 	/*cid, err := ipfsShell.Add(buff)
