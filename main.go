@@ -124,42 +124,42 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
-			newErrorJson("We cannot find upload file inside file field"),
+			newErrorJson("We cannot find uploader file inside file field"),
 		)
 
 		return
 	}
 	defer file.Close()
 
-	upload := services.NewUploader(file, header)
+	uploader := services.NewUploader(file, header)
 
 	// check if the file is audio
-	if !upload.IsAudio() {
+	if !uploader.IsAudio() {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
 			newErrorJson(
-				fmt.Sprintf("Wrong content type: %s", upload.GetContentType()),
+				fmt.Sprintf("Wrong content type: %s", uploader.GetContentType()),
 			),
 		)
 		return
 	}
 
 	// save original file
-	_, err = upload.SaveOriginal()
+	_, err = uploader.SaveOriginal()
 	if err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusInternalServerError,
 			newErrorJson(
-				fmt.Sprintf("Cannot save audio file %s", upload.Header.Filename),
+				fmt.Sprintf("Cannot save audio file %s", uploader.Header.Filename),
 			),
 		)
 	}
 
 	// check file size
 	// check duration
-	audio := services.NewAudio(upload.GetTmpOriginalFileName())
+	audio := services.NewAudio(uploader)
 	duration, err := audio.GetDuration()
 	if err != nil {
 		writeJSONResponse(
@@ -207,7 +207,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// remove original and converted
-	if err := audio.RemoveOriginal(); err != nil {
+	if err := audio.RemoveFiles(); err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -216,6 +216,59 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 		return
 	}
+
+	// get audio segments
+	segments, err := audio.GetSegments()
+	if err != nil {
+		writeJSONResponse(
+			w,
+			http.StatusBadRequest,
+			newErrorJson(err.Error()),
+		)
+
+		return
+	}
+
+	for _, segment := range segments {
+		fmt.Println(segment.Path)
+		duration, _ = segment.GetDuration()
+		fmt.Println(duration)
+		// add segment to ipfs and pin it
+		file, err := os.Open(segment.Path)
+		if err != nil {
+			writeJSONResponse(
+				w,
+				http.StatusBadRequest,
+				newErrorJson(err.Error()),
+			)
+
+			return
+		}
+
+		cid, err := ipfs.Add(file)
+		if err != nil {
+			writeJSONResponse(
+				w,
+				http.StatusInternalServerError,
+				newErrorJson(
+					fmt.Sprintf("Cannot uploader segment to ipfs"),
+				),
+			)
+
+			return
+		}
+
+		fmt.Println(cid)
+	}
+
+	// remove converted tmp files
+	// send publish tx to bitsong
+
+	writeJSONResponse(
+		w,
+		http.StatusCreated,
+		fmt.Sprintf("upload completed"),
+	)
 
 	/*
 
@@ -239,30 +292,6 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 	*/
 
-	// add and pin files to ipfs
-	/*cid, err := ipfsShell.Add(buff)
-	if err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusInternalServerError,
-			newErrorJson(
-				fmt.Sprintf("Cannot upload segment to ipfs %s", audio.Filename),
-			),
-		)
-
-		return
-	}
-
-
-	// remove converted tmp files
-	// send publish tx to bitsong
-
-
-	writeJSONResponse(
-		w,
-		http.StatusCreated,
-		fmt.Sprintf("cid %v", cid),
-	)*/
 }
 
 func main() {

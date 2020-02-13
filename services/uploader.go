@@ -52,6 +52,10 @@ func (u *Uploader) GetTmpOriginalFileName() string {
 	return u.getTmpDir() + "original" + u.GetExtension()
 }
 
+func (u *Uploader) GetTmpConvertedFileName() string {
+	return u.getTmpDir() + "converted" + u.GetExtension()
+}
+
 func (u *Uploader) createDir(path string) error {
 	if _, err := os.Stat(path); os.IsNotExist(err) {
 		err = os.MkdirAll(path, 0755)
