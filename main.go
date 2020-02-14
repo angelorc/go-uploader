@@ -183,7 +183,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Convert to mp3
-	if err := audio.ConvertToMp3(); err != nil {
+	if err := audio.TranscodeToMp3(); err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -197,17 +197,6 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 	// spilt mp3 to segments
 	if err := audio.SplitToSegments(); err != nil {
-		writeJSONResponse(
-			w,
-			http.StatusBadRequest,
-			newErrorJson(err.Error()),
-		)
-
-		return
-	}
-
-	// remove original and converted
-	if err := audio.RemoveFiles(); err != nil {
 		writeJSONResponse(
 			w,
 			http.StatusBadRequest,
@@ -231,8 +220,8 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 	for _, segment := range segments {
 		fmt.Println(segment.Path)
-		duration, _ = segment.GetDuration()
-		fmt.Println(duration)
+		//duration, _ = segment.GetDuration()
+		//fmt.Println(duration)
 		// add segment to ipfs and pin it
 		file, err := os.Open(segment.Path)
 		if err != nil {
@@ -260,6 +249,17 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 		fmt.Println(cid)
 	}
+
+	// remove original and converted
+	/*if err := audio.RemoveFiles(); err != nil {
+		writeJSONResponse(
+			w,
+			http.StatusBadRequest,
+			newErrorJson(err.Error()),
+		)
+
+		return
+	}*/
 
 	// remove converted tmp files
 	// send publish tx to bitsong

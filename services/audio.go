@@ -33,19 +33,20 @@ func NewAudio(u *Uploader) *Audio {
 }
 
 func (a *Audio) SplitToSegments() error {
-	newName := strings.Replace(a.Uploader.GetTmpConvertedFileName(), "converted", "%03d", 1)
+	newName := a.Uploader.getTmpDir() + "segment%03d.ts"
+	m3u8FileName := a.Uploader.getTmpDir() + "list.m3u8"
 
 	cmd := exec.Command(
 		"ffmpeg",
-		"-i",
-		a.Uploader.GetTmpConvertedFileName(),
-		"-f",
-		"segment",
-		"-segment_time",
-		"5", // 5sec
-		"-c",
-		"copy",
-		newName,
+		"-i", a.Uploader.GetTmpConvertedFileName(),
+		"-ar", "48000", // sample rate
+		"-b:a", "320k", // bitrate
+		"-hls_time", "5", // 5s for each segment
+		"-hls_segment_type", "mpegts", // hls segment type: Output segment files in MPEG-2 Transport Stream format. This is compatible with all HLS versions.
+		"-hls_list_size", "0", //  If set to 0 the list file will contain all the segments
+		//"-hls_base_url", "segments/",
+		"-hls_segment_filename", newName,
+		"-vn", m3u8FileName,
 	)
 
 	var ffmpegStdErr bytes.Buffer
@@ -135,7 +136,7 @@ func (a *Audio) GetSegments() (AudioSegments, error) {
 	var segments AudioSegments
 
 	err := filepath.Walk(a.Uploader.getTmpDir(), func(path string, info os.FileInfo, err error) error {
-		if strings.HasSuffix(path, ".mp3") {
+		if strings.HasSuffix(path, ".ts") {
 			segment := &AudioSegment{
 				Path: "./" + path,
 			}
@@ -160,15 +161,17 @@ func (a *Audio) RemoveFiles() error {
 	return nil
 }
 
-func (a *Audio) ConvertToMp3() error {
+func (a *Audio) TranscodeToMp3() error {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-i",
 		a.Uploader.GetTmpOriginalFileName(),
 		"-acodec",
 		"libmp3lame",
-		"-ab",
-		"128k",
+		"-ar",
+		"48000",
+		"-b:a",
+		"320k",
 		"-y",
 		a.Uploader.GetTmpConvertedFileName(),
 	)
