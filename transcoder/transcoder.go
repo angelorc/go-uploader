@@ -1,8 +1,12 @@
-package services
+package transcoder
 
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
+	"github.com/angelorc/go-uploader/db"
+	"github.com/angelorc/go-uploader/services"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"os"
@@ -11,6 +15,74 @@ import (
 	"strings"
 )
 
+var KeyPrefix = []byte("transcoder/")
+
+func Key(id string) []byte {
+	return append(KeyPrefix, []byte(id)...)
+}
+
+type TranscodeStatus struct {
+	Percentage int    `json:"percentage"`
+	Status     string `json:"status"`
+}
+
+func Save(db db.DB, audio *Transcoder) error {
+	if db.Has(audio.GetKey()) {
+		return fmt.Errorf("key exist")
+	}
+
+	data := TranscodeStatus{
+		Percentage: 0,
+		Status:     audio.GetID(),
+	}
+
+	bz, _ := json.Marshal(data)
+
+	if err := db.Set(audio.GetKey(), bz); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("Failed to save on db.")
+		return fmt.Errorf("failed to save on db")
+	}
+
+	return nil
+}
+
+func Update(db db.DB, audio *Transcoder, status *TranscodeStatus) error {
+	if !db.Has(audio.GetKey()) {
+		return fmt.Errorf("key not exist")
+	}
+
+	bz, _ := json.Marshal(status)
+
+	if err := db.Set(audio.GetKey(), bz); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("Failed to update on db.")
+		return fmt.Errorf("failed to update on db")
+	}
+
+	return nil
+}
+
+func IncrementPercentage(db db.DB, audio *Transcoder, percentage int) error {
+	if !db.Has(audio.GetKey()) {
+		return fmt.Errorf("key not exist")
+	}
+
+	record, _ := db.Get(audio.GetKey())
+	var status *TranscodeStatus
+	if err := json.Unmarshal(record, &status); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to unmarshal status")
+		return fmt.Errorf("failed to unmarshal status")
+	}
+
+	status.Percentage = percentage
+
+	if err := Update(db, audio, status); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to increment percentage")
+		return fmt.Errorf("failed to increment percentage")
+	}
+
+	return nil
+}
+
 type FFProbeFormat struct {
 	ready        bool
 	StreamsCount int32   `json:"nb_streams"`
@@ -18,23 +90,38 @@ type FFProbeFormat struct {
 	Duration     float32 `json:"duration,string"`
 }
 
-type Audio struct {
-	Uploader *Uploader
+type Transcoder struct {
+	Uploader *services.Uploader
+	Id       uuid.UUID
 	Format   FFProbeFormat `json:"format"`
 }
 
-func NewAudio(u *Uploader) *Audio {
-	return &Audio{
+func NewTranscoder(u *services.Uploader) *Transcoder {
+	id, err := uuid.NewUUID()
+	if err != nil {
+		log.Error().Str("filename", u.Header.Filename).Msg("cannot generate a new uuid...")
+	}
+
+	return &Transcoder{
 		Uploader: u,
+		Id:       id,
 		Format: FFProbeFormat{
 			ready: false,
 		},
 	}
 }
 
-func (a *Audio) SplitToSegments() error {
-	newName := a.Uploader.getDir() + "segment%03d.ts"
-	m3u8FileName := a.Uploader.getDir() + "list.m3u8"
+func (a *Transcoder) GetID() string {
+	return a.Id.String()
+}
+
+func (a *Transcoder) GetKey() []byte {
+	return Key(a.GetID())
+}
+
+func (a *Transcoder) SplitToSegments() error {
+	newName := a.Uploader.GetDir() + "segment%03d.ts"
+	m3u8FileName := a.Uploader.GetDir() + "list.m3u8"
 
 	cmd := exec.Command(
 		"ffmpeg",
@@ -132,10 +219,10 @@ func (as *AudioSegment) GetDuration() (float32, error) {
 	return as.Format.Duration, nil
 }
 
-func (a *Audio) GetSegments() (AudioSegments, error) {
+func (a *Transcoder) GetSegments() (AudioSegments, error) {
 	var segments AudioSegments
 
-	err := filepath.Walk(a.Uploader.getDir(), func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(a.Uploader.GetDir(), func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".ts") {
 			segment := &AudioSegment{
 				Path: "./" + path,
@@ -149,7 +236,7 @@ func (a *Audio) GetSegments() (AudioSegments, error) {
 	return segments, err
 }
 
-func (a *Audio) RemoveFiles() error {
+func (a *Transcoder) RemoveFiles() error {
 	if err := os.Remove(a.Uploader.GetTmpOriginalFileName()); err != nil {
 		return err
 	}
@@ -161,7 +248,7 @@ func (a *Audio) RemoveFiles() error {
 	return nil
 }
 
-func (a *Audio) TranscodeToMp3() error {
+func (a *Transcoder) TranscodeToMp3() error {
 	cmd := exec.Command(
 		"ffmpeg",
 		"-i",
@@ -195,7 +282,7 @@ func (a *Audio) TranscodeToMp3() error {
 	return nil
 }
 
-func (a *Audio) ffprobe() error {
+func (a *Transcoder) ffprobe() error {
 	cmd := exec.Command(
 		"ffprobe",
 		"-v",
@@ -234,7 +321,7 @@ func (a *Audio) ffprobe() error {
 	return nil
 }
 
-func (a *Audio) GetDuration() (float32, error) {
+func (a *Transcoder) GetDuration() (float32, error) {
 	if !a.Format.ready {
 		err := a.ffprobe()
 		if err != nil {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/angelorc/go-uploader/services"
+	"github.com/angelorc/go-uploader/transcoder"
 	"github.com/rs/zerolog/log"
 	"net/http"
 
@@ -21,7 +22,7 @@ const (
 )
 
 // RegisterRoutes registers all HTTP routes with the provided mux router.
-func RegisterRoutes(db db.DB, r *mux.Router, q chan *services.Audio) {
+func RegisterRoutes(db db.DB, r *mux.Router, q chan *transcoder.Transcoder) {
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 
 	r.HandleFunc("/api/v1/upload/audio", uploadAudioHandler(db, q)).Methods(methodPOST)
@@ -31,6 +32,7 @@ func RegisterRoutes(db db.DB, r *mux.Router, q chan *services.Audio) {
 }
 
 type UploadAudioResp struct {
+	Id       string  `json:"id"`
 	FileName string  `json:"file_name"`
 	Duration float32 `json:"duration"`
 }
@@ -39,11 +41,11 @@ type UploadAudioResp struct {
 // @Description Upload, transcode and publish to ipfs an audio
 // @Tags upload
 // @Produce json
-// @Param file formData file true "Audio file"
+// @Param file formData file true "Transcoder file"
 // @Success 200 {object} server.UploadAudioResp
 // @Failure 400 {object} server.ErrorResponse "Error"
 // @Router /upload/audio [post]
-func uploadAudioHandler(db db.DB, q chan *services.Audio) http.HandlerFunc {
+func uploadAudioHandler(db db.DB, q chan *transcoder.Transcoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("file")
 		if err != nil {
@@ -79,7 +81,7 @@ func uploadAudioHandler(db db.DB, q chan *services.Audio) http.HandlerFunc {
 
 		// check file size
 		// check duration
-		audio := services.NewAudio(uploader)
+		audio := transcoder.NewTranscoder(uploader)
 		log.Info().Str("filename", header.Filename).Msg("check audio duration")
 
 		duration, err := audio.GetDuration()
@@ -97,13 +99,19 @@ func uploadAudioHandler(db db.DB, q chan *services.Audio) http.HandlerFunc {
 			return
 		}
 
+		// save to db
+		if err := transcoder.Save(db, audio); err != nil {
+			writeErrorResponse(w, http.StatusBadRequest, err)
+			return
+		}
+
 		// transcode audio
 		log.Info().Str("filename", header.Filename).Msg("transcode audio")
 
-		//go audio.Transcode()
 		q <- audio
 
 		res := UploadAudioResp{
+			Id:       audio.GetID(),
 			FileName: uploader.Header.Filename,
 			Duration: duration,
 		}
@@ -136,23 +144,30 @@ func uploadImageHandler(db db.DB) http.HandlerFunc {
 	}
 }
 
-type TranscodeStatusResp struct {
-	Percentage int    `json:"percentage"`
-	Status     string `json:"status"`
-}
-
 // @Summary Get transcode status
 // @Description Get transcode status by CID.
 // @Tags transcode
 // @Produce json
 // @Param cid path string true "CID"
-// @Success 200 {object} server.TranscodeStatusResp
+// @Success 200 {object} transcoder.TranscodeStatus
 // @Failure 400 {object} server.ErrorResponse "Failure to parse the cid"
 // @Failure 404 {object} server.ErrorResponse "Failure to find the cid"
 // @Router /transcode/{cid} [get]
 func getTranscodeHandler(db db.DB) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		var params = mux.Vars(r)
+		cid := params["cid"]
+
+		if !db.Has(transcoder.Key(cid)) {
+			writeErrorResponse(w, http.StatusBadRequest, fmt.Errorf("cid not found"))
+			return
+		}
+
+		bz, _ := db.Get(transcoder.Key(cid))
+
+		json.Unmarshal(bz, &transcoder.TranscodeStatus{})
+
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write([]byte("not implemented"))
+		_, _ = w.Write(bz)
 	}
 }

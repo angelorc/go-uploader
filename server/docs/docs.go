@@ -54,7 +54,7 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/server.TranscodeStatusResp"
+                            "$ref": "#/definitions/transcoder.TranscodeStatus"
                         }
                     },
                     "400": {
@@ -85,7 +85,7 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "file",
-                        "description": "Audio file",
+                        "description": "Transcoder file",
                         "name": "file",
                         "in": "formData",
                         "required": true
@@ -152,17 +152,6 @@ var doc = `{
                 }
             }
         },
-        "server.TranscodeStatusResp": {
-            "type": "object",
-            "properties": {
-                "percentage": {
-                    "type": "integer"
-                },
-                "status": {
-                    "type": "string"
-                }
-            }
-        },
         "server.UploadAudioResp": {
             "type": "object",
             "properties": {
@@ -170,6 +159,20 @@ var doc = `{
                     "type": "number"
                 },
                 "file_name": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                }
+            }
+        },
+        "transcoder.TranscodeStatus": {
+            "type": "object",
+            "properties": {
+                "percentage": {
+                    "type": "integer"
+                },
+                "status": {
                     "type": "string"
                 }
             }

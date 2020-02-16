@@ -3,7 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/angelorc/go-uploader/db"
-	"github.com/angelorc/go-uploader/services"
+	"github.com/angelorc/go-uploader/transcoder"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
@@ -11,7 +11,6 @@ import (
 	"github.com/spf13/cobra"
 	"net/http"
 	"os"
-	"sync"
 	"time"
 
 	"github.com/angelorc/go-uploader/server"
@@ -27,7 +26,6 @@ const (
 var (
 	logLevel  string
 	logFormat string
-	wg        sync.WaitGroup
 )
 
 var rootCmd = &cobra.Command{
@@ -75,11 +73,11 @@ func getStartCmd() *cobra.Command {
 			defer db.Close()
 
 			// make a queue with a capacity of 1 transcoder.
-			queue := make(chan *services.Audio, 1)
+			queue := make(chan *transcoder.Transcoder, 1)
 
 			go func() {
 				for q := range queue {
-					doTranscode(q)
+					doTranscode(q, db)
 				}
 			}()
 
@@ -109,7 +107,8 @@ func getStartCmd() *cobra.Command {
 	return startCmd
 }
 
-func doTranscode(audio *services.Audio) {
+func doTranscode(audio *transcoder.Transcoder, db db.DB) {
+	transcoder.IncrementPercentage(db, audio, 25)
 	// Convert to mp3
 	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("starting conversion to mp3")
 
@@ -117,6 +116,8 @@ func doTranscode(audio *services.Audio) {
 		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to transcode")
 		return
 	}
+
+	transcoder.IncrementPercentage(db, audio, 50)
 
 	// check size compared to original
 
@@ -127,6 +128,8 @@ func doTranscode(audio *services.Audio) {
 		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to split")
 		return
 	}
+
+	transcoder.IncrementPercentage(db, audio, 100)
 
 	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("transcode completed")
 }

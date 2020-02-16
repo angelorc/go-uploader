@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/angelorc/go-uploader/cmd"
 	"github.com/angelorc/go-uploader/services"
+	"github.com/angelorc/go-uploader/transcoder"
 	log "github.com/sirupsen/logrus"
 	"io"
 	"io/ioutil"
@@ -160,7 +161,7 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 
 	// check file size
 	// check duration
-	audio := services.NewAudio(uploader)
+	audio := transcoder.NewTranscoder(uploader)
 	duration, err := audio.GetDuration()
 	if err != nil {
 		writeJSONResponse(

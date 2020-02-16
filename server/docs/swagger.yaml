@@ -5,18 +5,20 @@ definitions:
       error:
         type: string
     type: object
-  server.TranscodeStatusResp:
-    properties:
-      percentage:
-        type: integer
-      status:
-        type: string
-    type: object
   server.UploadAudioResp:
     properties:
       duration:
         type: number
       file_name:
+        type: string
+      id:
+        type: string
+    type: object
+  transcoder.TranscodeStatus:
+    properties:
+      percentage:
+        type: integer
+      status:
         type: string
     type: object
 host: localhost:8081
@@ -46,7 +48,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/server.TranscodeStatusResp'
+            $ref: '#/definitions/transcoder.TranscodeStatus'
         "400":
           description: Failure to parse the cid
           schema:
@@ -62,7 +64,7 @@ paths:
     post:
       description: Upload, transcode and publish to ipfs an audio
       parameters:
-      - description: Audio file
+      - description: Transcoder file
         in: formData
         name: file
         required: true
