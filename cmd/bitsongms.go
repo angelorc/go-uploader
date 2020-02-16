@@ -3,6 +3,7 @@ package cmd
 import (
 	"fmt"
 	"github.com/angelorc/go-uploader/db"
+	"github.com/angelorc/go-uploader/services"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
 	"github.com/rs/zerolog"
@@ -10,9 +11,7 @@ import (
 	"github.com/spf13/cobra"
 	"net/http"
 	"os"
-	"os/signal"
 	"sync"
-	"syscall"
 	"time"
 
 	"github.com/angelorc/go-uploader/server"
@@ -72,16 +71,22 @@ func bitsongmsCmdHandler(cmd *cobra.Command, args []string) error {
 	}
 	defer db.Close()
 
+	// make a queue with a capacity of 1 transcoder.
+	queue := make(chan *services.Audio, 1)
+
+	go func() {
+		for q := range queue {
+			doTranscode(q)
+		}
+	}()
+
 	// create HTTP router and mount routes
 	router := mux.NewRouter()
 	c := cors.New(cors.Options{
 		AllowedOrigins: []string{"*"},
 	})
 
-	// make a channel with a capacity of 1 transcoder.
-	//tChan := make(chan int, 1)
-
-	server.RegisterRoutes(db, router)
+	server.RegisterRoutes(db, router, queue)
 
 	srv := &http.Server{
 		Handler:      c.Handler(router),
@@ -94,17 +99,6 @@ func bitsongmsCmdHandler(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe()
 }
 
-// trapSignal will listen for any OS signal and invoke Done on the main
-// WaitGroup allowing the main process to gracefully exit.
-func trapSignal() {
-	var sigCh = make(chan os.Signal)
-
-	signal.Notify(sigCh, syscall.SIGTERM)
-	signal.Notify(sigCh, syscall.SIGINT)
-
-	go func() {
-		sig := <-sigCh
-		log.Info().Str("signal", sig.String()).Msg("caught signal; shutting down...")
-		defer wg.Done()
-	}()
+func doTranscode(a *services.Audio) {
+	a.Transcode()
 }

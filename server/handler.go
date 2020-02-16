@@ -21,10 +21,10 @@ const (
 )
 
 // RegisterRoutes registers all HTTP routes with the provided mux router.
-func RegisterRoutes(db db.DB, r *mux.Router) {
+func RegisterRoutes(db db.DB, r *mux.Router, q chan *services.Audio) {
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 
-	r.HandleFunc("/api/v1/upload/audio", uploadAudioHandler(db)).Methods(methodPOST)
+	r.HandleFunc("/api/v1/upload/audio", uploadAudioHandler(db, q)).Methods(methodPOST)
 	r.HandleFunc("api/v1/upload/image", uploadImageHandler(db)).Methods(methodPOST)
 
 	r.HandleFunc("/api/v1/transcode/{cid}", getTranscodeHandler(db)).Methods(methodGET)
@@ -43,7 +43,7 @@ type UploadAudioResp struct {
 // @Success 200 {object} server.UploadAudioResp
 // @Failure 400 {object} server.ErrorResponse "Error"
 // @Router /upload/audio [post]
-func uploadAudioHandler(db db.DB) http.HandlerFunc {
+func uploadAudioHandler(db db.DB, q chan *services.Audio) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("file")
 		if err != nil {
@@ -100,7 +100,8 @@ func uploadAudioHandler(db db.DB) http.HandlerFunc {
 		// transcode audio
 		log.Info().Str("filename", header.Filename).Msg("transcode audio")
 
-		go audio.Transcode()
+		//go audio.Transcode()
+		q <- audio
 
 		res := UploadAudioResp{
 			FileName: uploader.Header.Filename,
