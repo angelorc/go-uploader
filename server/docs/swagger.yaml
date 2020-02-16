@@ -1,0 +1,107 @@
+basePath: /api/v1
+definitions:
+  server.ErrorResponse:
+    properties:
+      error:
+        type: string
+    type: object
+  server.TranscodeStatusResp:
+    properties:
+      percentage:
+        type: integer
+      status:
+        type: string
+    type: object
+  server.UploadAudioResp:
+    properties:
+      duration:
+        type: number
+      file_name:
+        type: string
+    type: object
+host: localhost:8081
+info:
+  contact:
+    email: hello@bitsong.io
+    name: BitSong
+  description: Swagger documentation for the BitSong Media Server service API.
+  license:
+    name: CC0
+    url: https://creativecommons.org/share-your-work/public-domain/cc0/
+  title: bitsongms API Docs
+  version: "0.1"
+paths:
+  /transcode/{cid}:
+    get:
+      description: Get transcode status by CID.
+      parameters:
+      - description: CID
+        in: path
+        name: cid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.TranscodeStatusResp'
+        "400":
+          description: Failure to parse the cid
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+        "404":
+          description: Failure to find the cid
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Get transcode status
+      tags:
+      - transcode
+  /upload/audio:
+    post:
+      description: Upload, transcode and publish to ipfs an audio
+      parameters:
+      - description: Audio file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.UploadAudioResp'
+        "400":
+          description: Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Upload and transcode audio file
+      tags:
+      - upload
+  /upload/image:
+    post:
+      description: Upload, create and publish to ipfs an image
+      parameters:
+      - description: Image file
+        in: formData
+        name: file
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/server.UploadAudioResp'
+        "400":
+          description: Error
+          schema:
+            $ref: '#/definitions/server.ErrorResponse'
+      summary: Upload and create image file
+      tags:
+      - upload
+swagger: "2.0"

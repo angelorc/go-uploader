@@ -4,6 +4,7 @@ import (
 	//"bytes"
 	//"encoding/json"
 	"fmt"
+	"github.com/angelorc/go-uploader/cmd"
 	"github.com/angelorc/go-uploader/services"
 	log "github.com/sirupsen/logrus"
 	"io"
@@ -295,14 +296,28 @@ func receiveHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
-	dir, err := os.Getwd()
+	cmd.Execute()
+	/*dir, err := os.Getwd()
 	if err != nil {
 		fmt.Println("err=", err)
 		os.Exit(1)
 	}
 
+	if _, err := os.Stat("db"); os.IsNotExist(err) {
+		if err := os.Mkdir("db", os.ModePerm); err != nil {
+			os.Exit(1)
+		}
+	}
+
+	// create and open key/value DB
+	db, err := db.NewBadgerDB(cfg.DataDir, "tmcrawl.db")
+	if err != nil {
+		return err
+	}
+	defer db.Close()
+
 	http.HandleFunc("/upload", uploadHandler)   // Display a form for user to upload file
 	http.HandleFunc("/receive", receiveHandler) // Handle the incoming file
 	http.Handle("/", http.FileServer(http.Dir(dir)))
-	log.Fatal(http.ListenAndServe(":8081", nil))
+	log.Fatal(http.ListenAndServe(":8081", nil))*/
 }

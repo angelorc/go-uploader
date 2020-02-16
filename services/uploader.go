@@ -44,16 +44,16 @@ func (u *Uploader) IsAudio() bool {
 	return contentType == "audio/aac" || contentType == "audio/wav" || contentType == "audio/mp3" || contentType == "application/octet-stream"
 }
 
-func (u *Uploader) getTmpDir() string {
-	return "./tmp/" + u.GetID() + "/"
+func (u *Uploader) getDir() string {
+	return ".bitsongms/uploader/" + u.GetID() + "/"
 }
 
 func (u *Uploader) GetTmpOriginalFileName() string {
-	return u.getTmpDir() + "original" + u.GetExtension()
+	return u.getDir() + "original" + u.GetExtension()
 }
 
 func (u *Uploader) GetTmpConvertedFileName() string {
-	return u.getTmpDir() + "converted" + u.GetExtension()
+	return u.getDir() + "converted" + u.GetExtension()
 }
 
 func (u *Uploader) createDir(path string) error {
@@ -69,7 +69,7 @@ func (u *Uploader) createDir(path string) error {
 
 func (u *Uploader) SaveOriginal() (*os.File, error) {
 	// create tmp dir
-	if err := u.createDir(u.getTmpDir()); err != nil {
+	if err := u.createDir(u.getDir()); err != nil {
 		return nil, err
 	}
 

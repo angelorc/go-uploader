@@ -3,7 +3,7 @@ package services
 import (
 	"bytes"
 	"encoding/json"
-	log "github.com/sirupsen/logrus"
+	"github.com/rs/zerolog/log"
 	"io/ioutil"
 	"os"
 	"os/exec"
@@ -32,9 +32,31 @@ func NewAudio(u *Uploader) *Audio {
 	}
 }
 
+func (a *Audio) Transcode() {
+	// Convert to mp3
+	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("starting conversion to mp3")
+
+	if err := a.TranscodeToMp3(); err != nil {
+		log.Error().Str("filename", a.Uploader.Header.Filename).Msg("failed to transcode")
+		return
+	}
+
+	// check size compared to original
+
+	// spilt mp3 to segments
+	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("starting splitting to segments")
+
+	if err := a.SplitToSegments(); err != nil {
+		log.Error().Str("filename", a.Uploader.Header.Filename).Msg("failed to split")
+		return
+	}
+
+	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("transcode completed")
+}
+
 func (a *Audio) SplitToSegments() error {
-	newName := a.Uploader.getTmpDir() + "segment%03d.ts"
-	m3u8FileName := a.Uploader.getTmpDir() + "list.m3u8"
+	newName := a.Uploader.getDir() + "segment%03d.ts"
+	m3u8FileName := a.Uploader.getDir() + "list.m3u8"
 
 	cmd := exec.Command(
 		"ffmpeg",
@@ -135,7 +157,7 @@ func (as *AudioSegment) GetDuration() (float32, error) {
 func (a *Audio) GetSegments() (AudioSegments, error) {
 	var segments AudioSegments
 
-	err := filepath.Walk(a.Uploader.getTmpDir(), func(path string, info os.FileInfo, err error) error {
+	err := filepath.Walk(a.Uploader.getDir(), func(path string, info os.FileInfo, err error) error {
 		if strings.HasSuffix(path, ".ts") {
 			segment := &AudioSegment{
 				Path: "./" + path,
