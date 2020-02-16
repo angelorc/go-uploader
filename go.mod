@@ -14,6 +14,7 @@ require (
 	github.com/mailru/easyjson v0.7.0 // indirect
 	github.com/rs/cors v1.7.0
 	github.com/rs/zerolog v1.18.0
+	github.com/sirkon/goproxy v1.4.8 // indirect
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
@@ -21,5 +22,5 @@ require (
 	github.com/swaggo/swag v1.6.5
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
 	golang.org/x/tools v0.0.0-20200214225126-5916a50871fb // indirect
-	gopkg.in/yaml.v2 v2.2.8 // indirect
+	gopkg.in/yaml.v2 v2.2.8
 )
