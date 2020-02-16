@@ -99,6 +99,24 @@ func bitsongmsCmdHandler(cmd *cobra.Command, args []string) error {
 	return srv.ListenAndServe()
 }
 
-func doTranscode(a *services.Audio) {
-	a.Transcode()
+func doTranscode(audio *services.Audio) {
+	// Convert to mp3
+	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("starting conversion to mp3")
+
+	if err := audio.TranscodeToMp3(); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to transcode")
+		return
+	}
+
+	// check size compared to original
+
+	// spilt mp3 to segments
+	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("starting splitting to segments")
+
+	if err := audio.SplitToSegments(); err != nil {
+		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to split")
+		return
+	}
+
+	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("transcode completed")
 }

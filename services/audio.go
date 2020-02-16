@@ -32,28 +32,6 @@ func NewAudio(u *Uploader) *Audio {
 	}
 }
 
-func (a *Audio) Transcode() {
-	// Convert to mp3
-	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("starting conversion to mp3")
-
-	if err := a.TranscodeToMp3(); err != nil {
-		log.Error().Str("filename", a.Uploader.Header.Filename).Msg("failed to transcode")
-		return
-	}
-
-	// check size compared to original
-
-	// spilt mp3 to segments
-	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("starting splitting to segments")
-
-	if err := a.SplitToSegments(); err != nil {
-		log.Error().Str("filename", a.Uploader.Header.Filename).Msg("failed to split")
-		return
-	}
-
-	log.Info().Str("filename", a.Uploader.Header.Filename).Msg("transcode completed")
-}
-
 func (a *Audio) SplitToSegments() error {
 	newName := a.Uploader.getDir() + "segment%03d.ts"
 	m3u8FileName := a.Uploader.getDir() + "list.m3u8"
