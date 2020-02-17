@@ -74,15 +74,6 @@ type AudioSegment struct {
 
 type AudioSegments []*AudioSegment
 
-func NewAudioSegment(path string) *AudioSegment {
-	return &AudioSegment{
-		Path: path,
-		Format: FFProbeFormat{
-			ready: false,
-		},
-	}
-}
-
 func (as *AudioSegment) ffprobe() error {
 	cmd := exec.Command(
 		"ffprobe",
