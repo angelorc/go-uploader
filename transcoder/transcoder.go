@@ -3,85 +3,15 @@ package transcoder
 import (
 	"bytes"
 	"encoding/json"
-	"fmt"
-	"github.com/angelorc/go-uploader/db"
 	"github.com/angelorc/go-uploader/services"
-	"github.com/google/uuid"
 	"github.com/rs/zerolog/log"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strings"
 )
-
-var KeyPrefix = []byte("transcoder/")
-
-func Key(id string) []byte {
-	return append(KeyPrefix, []byte(id)...)
-}
-
-type TranscodeStatus struct {
-	Percentage int    `json:"percentage"`
-	Status     string `json:"status"`
-}
-
-func Save(db db.DB, audio *Transcoder) error {
-	if db.Has(audio.GetKey()) {
-		return fmt.Errorf("key exist")
-	}
-
-	data := TranscodeStatus{
-		Percentage: 0,
-		Status:     audio.GetID(),
-	}
-
-	bz, _ := json.Marshal(data)
-
-	if err := db.Set(audio.GetKey(), bz); err != nil {
-		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("Failed to save on db.")
-		return fmt.Errorf("failed to save on db")
-	}
-
-	return nil
-}
-
-func Update(db db.DB, audio *Transcoder, status *TranscodeStatus) error {
-	if !db.Has(audio.GetKey()) {
-		return fmt.Errorf("key not exist")
-	}
-
-	bz, _ := json.Marshal(status)
-
-	if err := db.Set(audio.GetKey(), bz); err != nil {
-		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("Failed to update on db.")
-		return fmt.Errorf("failed to update on db")
-	}
-
-	return nil
-}
-
-func IncrementPercentage(db db.DB, audio *Transcoder, percentage int) error {
-	if !db.Has(audio.GetKey()) {
-		return fmt.Errorf("key not exist")
-	}
-
-	record, _ := db.Get(audio.GetKey())
-	var status *TranscodeStatus
-	if err := json.Unmarshal(record, &status); err != nil {
-		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to unmarshal status")
-		return fmt.Errorf("failed to unmarshal status")
-	}
-
-	status.Percentage = percentage
-
-	if err := Update(db, audio, status); err != nil {
-		log.Error().Str("filename", audio.Uploader.Header.Filename).Msg("failed to increment percentage")
-		return fmt.Errorf("failed to increment percentage")
-	}
-
-	return nil
-}
 
 type FFProbeFormat struct {
 	ready        bool
@@ -92,31 +22,18 @@ type FFProbeFormat struct {
 
 type Transcoder struct {
 	Uploader *services.Uploader
-	Id       uuid.UUID
+	Id       primitive.ObjectID
 	Format   FFProbeFormat `json:"format"`
 }
 
-func NewTranscoder(u *services.Uploader) *Transcoder {
-	id, err := uuid.NewUUID()
-	if err != nil {
-		log.Error().Str("filename", u.Header.Filename).Msg("cannot generate a new uuid...")
-	}
-
+func NewTranscoder(u *services.Uploader, id primitive.ObjectID) *Transcoder {
 	return &Transcoder{
 		Uploader: u,
-		Id:       id,
+		Id: id,
 		Format: FFProbeFormat{
 			ready: false,
 		},
 	}
-}
-
-func (a *Transcoder) GetID() string {
-	return a.Id.String()
-}
-
-func (a *Transcoder) GetKey() []byte {
-	return Key(a.GetID())
 }
 
 func (a *Transcoder) SplitToSegments() error {

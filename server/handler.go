@@ -3,12 +3,13 @@ package server
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/angelorc/go-uploader/models"
 	"github.com/angelorc/go-uploader/services"
 	"github.com/angelorc/go-uploader/transcoder"
 	"github.com/rs/zerolog/log"
+	"go.mongodb.org/mongo-driver/bson/primitive"
 	"net/http"
 
-	"github.com/angelorc/go-uploader/db"
 	_ "github.com/angelorc/go-uploader/server/docs"
 	"github.com/gorilla/mux"
 	httpswagger "github.com/swaggo/http-swagger"
@@ -22,13 +23,13 @@ const (
 )
 
 // RegisterRoutes registers all HTTP routes with the provided mux router.
-func RegisterRoutes(db db.DB, r *mux.Router, q chan *transcoder.Transcoder) {
+func RegisterRoutes(r *mux.Router, q chan *transcoder.Transcoder) {
 	r.PathPrefix("/swagger/").Handler(httpswagger.WrapHandler)
 
-	r.HandleFunc("/api/v1/upload/audio", uploadAudioHandler(db, q)).Methods(methodPOST)
-	r.HandleFunc("api/v1/upload/image", uploadImageHandler(db)).Methods(methodPOST)
+	r.HandleFunc("/api/v1/upload/audio", uploadAudioHandler(q)).Methods(methodPOST)
+	r.HandleFunc("api/v1/upload/image", uploadImageHandler()).Methods(methodPOST)
 
-	r.HandleFunc("/api/v1/transcode/{cid}", getTranscodeHandler(db)).Methods(methodGET)
+	r.HandleFunc("/api/v1/transcode/{id}", getTranscodeHandler()).Methods(methodGET)
 }
 
 type UploadAudioResp struct {
@@ -45,7 +46,7 @@ type UploadAudioResp struct {
 // @Success 200 {object} server.UploadAudioResp
 // @Failure 400 {object} server.ErrorResponse "Error"
 // @Router /upload/audio [post]
-func uploadAudioHandler(db db.DB, q chan *transcoder.Transcoder) http.HandlerFunc {
+func uploadAudioHandler(q chan *transcoder.Transcoder) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		file, header, err := r.FormFile("file")
 		if err != nil {
@@ -81,7 +82,13 @@ func uploadAudioHandler(db db.DB, q chan *transcoder.Transcoder) http.HandlerFun
 
 		// check file size
 		// check duration
-		audio := transcoder.NewTranscoder(uploader)
+		tm := models.NewTranscoder()
+		if err := tm.Create(); err != nil {
+			writeErrorResponse(w, http.StatusBadRequest, err)
+			return
+		}
+
+		audio := transcoder.NewTranscoder(uploader, tm.ID)
 		log.Info().Str("filename", header.Filename).Msg("check audio duration")
 
 		duration, err := audio.GetDuration()
@@ -99,19 +106,13 @@ func uploadAudioHandler(db db.DB, q chan *transcoder.Transcoder) http.HandlerFun
 			return
 		}
 
-		// save to db
-		if err := transcoder.Save(db, audio); err != nil {
-			writeErrorResponse(w, http.StatusBadRequest, err)
-			return
-		}
-
 		// transcode audio
 		log.Info().Str("filename", header.Filename).Msg("transcode audio")
 
 		q <- audio
 
 		res := UploadAudioResp{
-			Id:       audio.GetID(),
+			Id: tm.ID.Hex(),
 			FileName: uploader.Header.Filename,
 			Duration: duration,
 		}
@@ -137,7 +138,7 @@ func uploadAudioHandler(db db.DB, q chan *transcoder.Transcoder) http.HandlerFun
 // @Success 200 {object} server.UploadAudioResp
 // @Failure 400 {object} server.ErrorResponse "Error"
 // @Router /upload/image [post]
-func uploadImageHandler(db db.DB) http.HandlerFunc {
+func uploadImageHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		_, _ = w.Write([]byte("not implemented"))
@@ -145,29 +146,36 @@ func uploadImageHandler(db db.DB) http.HandlerFunc {
 }
 
 // @Summary Get transcode status
-// @Description Get transcode status by CID.
+// @Description Get transcode status by ID.
 // @Tags transcode
 // @Produce json
-// @Param cid path string true "CID"
-// @Success 200 {object} transcoder.TranscodeStatus
-// @Failure 400 {object} server.ErrorResponse "Failure to parse the cid"
-// @Failure 404 {object} server.ErrorResponse "Failure to find the cid"
-// @Router /transcode/{cid} [get]
-func getTranscodeHandler(db db.DB) http.HandlerFunc {
+// @Param id path string true "ID"
+// @Success 200 {object} models.Transcoder
+// @Failure 400 {object} server.ErrorResponse "Failure to parse the id"
+// @Failure 404 {object} server.ErrorResponse "Failure to find the id"
+// @Router /transcode/{id} [get]
+func getTranscodeHandler() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var params = mux.Vars(r)
-		cid := params["cid"]
+		id := params["id"]
 
-		if !db.Has(transcoder.Key(cid)) {
-			writeErrorResponse(w, http.StatusBadRequest, fmt.Errorf("cid not found"))
+		pid, err := primitive.ObjectIDFromHex(id)
+		if err != nil {
+			writeErrorResponse(w, http.StatusBadRequest, fmt.Errorf("cannot decode id"))
 			return
 		}
 
-		bz, _ := db.Get(transcoder.Key(cid))
+		tm := &models.Transcoder{
+			ID:         pid,
+		}
 
-		json.Unmarshal(bz, &transcoder.TranscodeStatus{})
+		res, err := tm.Get()
+		if err != nil {
+			writeErrorResponse(w, http.StatusBadRequest, fmt.Errorf("id not found"))
+			return
+		}
 
 		w.Header().Set("Content-Type", "application/json")
-		_, _ = w.Write(bz)
+		json.NewEncoder(w).Encode(res)
 	}
 }

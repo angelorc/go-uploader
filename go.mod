@@ -20,7 +20,8 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/swaggo/http-swagger v0.0.0-20200103000832-0e9263c4b516
 	github.com/swaggo/swag v1.6.5
+	go.mongodb.org/mongo-driver v1.3.0
 	golang.org/x/net v0.0.0-20200202094626-16171245cfb2 // indirect
-	golang.org/x/tools v0.0.0-20200214225126-5916a50871fb // indirect
+	golang.org/x/tools v0.0.0-20200216192241-b320d3a0f5a2 // indirect
 	gopkg.in/yaml.v2 v2.2.8
 )

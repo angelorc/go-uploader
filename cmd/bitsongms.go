@@ -2,7 +2,7 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/angelorc/go-uploader/db"
+	"github.com/angelorc/go-uploader/models"
 	"github.com/angelorc/go-uploader/transcoder"
 	"github.com/gorilla/mux"
 	"github.com/rs/cors"
@@ -65,19 +65,12 @@ func getStartCmd() *cobra.Command {
 				}
 			}
 
-			// create and open key/value DB
-			db, err := db.NewBadgerDB(dbPath, "db")
-			if err != nil {
-				return err
-			}
-			defer db.Close()
-
 			// make a queue with a capacity of 1 transcoder.
 			queue := make(chan *transcoder.Transcoder, 1)
 
 			go func() {
 				for q := range queue {
-					doTranscode(q, db)
+					doTranscode(q)
 				}
 			}()
 
@@ -87,7 +80,7 @@ func getStartCmd() *cobra.Command {
 				AllowedOrigins: []string{"*"},
 			})
 
-			server.RegisterRoutes(db, router, queue)
+			server.RegisterRoutes(router, queue)
 
 			srv := &http.Server{
 				Handler:      c.Handler(router),
@@ -107,8 +100,12 @@ func getStartCmd() *cobra.Command {
 	return startCmd
 }
 
-func doTranscode(audio *transcoder.Transcoder, db db.DB) {
-	transcoder.IncrementPercentage(db, audio, 25)
+func doTranscode(audio *transcoder.Transcoder) {
+	tm := &models.Transcoder{
+		ID:         audio.Id,
+	}
+
+	tm.UpdatePercentage(20)
 	// Convert to mp3
 	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("starting conversion to mp3")
 
@@ -117,7 +114,7 @@ func doTranscode(audio *transcoder.Transcoder, db db.DB) {
 		return
 	}
 
-	transcoder.IncrementPercentage(db, audio, 50)
+	tm.UpdatePercentage(50)
 
 	// check size compared to original
 
@@ -129,7 +126,7 @@ func doTranscode(audio *transcoder.Transcoder, db db.DB) {
 		return
 	}
 
-	transcoder.IncrementPercentage(db, audio, 100)
+	tm.UpdatePercentage(100)
 
 	log.Info().Str("filename", audio.Uploader.Header.Filename).Msg("transcode completed")
 }

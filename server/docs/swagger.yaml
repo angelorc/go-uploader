@@ -1,5 +1,12 @@
 basePath: /api/v1
 definitions:
+  models.Transcoder:
+    properties:
+      _id:
+        type: string
+      percentage:
+        type: integer
+    type: object
   server.ErrorResponse:
     properties:
       error:
@@ -14,13 +21,6 @@ definitions:
       id:
         type: string
     type: object
-  transcoder.TranscodeStatus:
-    properties:
-      percentage:
-        type: integer
-      status:
-        type: string
-    type: object
 host: localhost:8081
 info:
   contact:
@@ -33,13 +33,13 @@ info:
   title: bitsongms API Docs
   version: "0.1"
 paths:
-  /transcode/{cid}:
+  /transcode/{id}:
     get:
-      description: Get transcode status by CID.
+      description: Get transcode status by ID.
       parameters:
-      - description: CID
+      - description: ID
         in: path
-        name: cid
+        name: id
         required: true
         type: string
       produces:
@@ -48,13 +48,13 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/transcoder.TranscodeStatus'
+            $ref: '#/definitions/models.Transcoder'
         "400":
-          description: Failure to parse the cid
+          description: Failure to parse the id
           schema:
             $ref: '#/definitions/server.ErrorResponse'
         "404":
-          description: Failure to find the cid
+          description: Failure to find the id
           schema:
             $ref: '#/definitions/server.ErrorResponse'
       summary: Get transcode status

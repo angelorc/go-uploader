@@ -31,9 +31,9 @@ var doc = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
-        "/transcode/{cid}": {
+        "/transcode/{id}": {
             "get": {
-                "description": "Get transcode status by CID.",
+                "description": "Get transcode status by ID.",
                 "produces": [
                     "application/json"
                 ],
@@ -44,8 +44,8 @@ var doc = `{
                 "parameters": [
                     {
                         "type": "string",
-                        "description": "CID",
-                        "name": "cid",
+                        "description": "ID",
+                        "name": "id",
                         "in": "path",
                         "required": true
                     }
@@ -54,17 +54,17 @@ var doc = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/transcoder.TranscodeStatus"
+                            "$ref": "#/definitions/models.Transcoder"
                         }
                     },
                     "400": {
-                        "description": "Failure to parse the cid",
+                        "description": "Failure to parse the id",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Failure to find the cid",
+                        "description": "Failure to find the id",
                         "schema": {
                             "$ref": "#/definitions/server.ErrorResponse"
                         }
@@ -144,6 +144,17 @@ var doc = `{
         }
     },
     "definitions": {
+        "models.Transcoder": {
+            "type": "object",
+            "properties": {
+                "_id": {
+                    "type": "string"
+                },
+                "percentage": {
+                    "type": "integer"
+                }
+            }
+        },
         "server.ErrorResponse": {
             "type": "object",
             "properties": {
@@ -162,17 +173,6 @@ var doc = `{
                     "type": "string"
                 },
                 "id": {
-                    "type": "string"
-                }
-            }
-        },
-        "transcoder.TranscodeStatus": {
-            "type": "object",
-            "properties": {
-                "percentage": {
-                    "type": "integer"
-                },
-                "status": {
                     "type": "string"
                 }
             }
